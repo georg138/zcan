@@ -638,9 +638,9 @@ command_mapping = {
     "open_bypass":  "8415020100000000100e000001000000",
     "close_bypass": "8415020100000000100e000002000000",
     # temperature profile (TEMPHUMCONTROL=0x1D, extrapolated from ventilation level pattern)
-    "temperature_profile_normal": "841d010100000000001c000000000000",
-    "temperature_profile_cool":   "841d010100000000001c000001000000",
-    "temperature_profile_warm":   "841d010100000000001c000002000000",
+    "temperature_profile_normal": "8415030100000000001c000000000000",
+    "temperature_profile_cool":   "8415030100000000001c000001000000",
+    "temperature_profile_warm":   "8415030100000000001c000002000000",
     # menu mode (NODECONFIGURATION=0x20, extrapolated from ventilation level pattern)
     "basis_menu":    "8420010100000000001c000000000000",
     "extended_menu": "8420010100000000001c000001000000",
