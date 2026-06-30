@@ -607,6 +607,23 @@ mapping = {
 #00398041 unknown 0 0 0 0 0 0 0 0
 }
 
+command_topics = {
+    ("set_ventilation_level", "0"): "set_ventilation_level_0",
+    ("set_ventilation_level", "1"): "set_ventilation_level_1",
+    ("set_ventilation_level", "2"): "set_ventilation_level_2",
+    ("set_ventilation_level", "3"): "set_ventilation_level_3",
+    ("operating_mode", "auto"):        "auto_mode",
+    ("operating_mode", "manual"):      "manual_mode",
+    ("temperature_profile", "cool"):   "temperature_profile_cool",
+    ("temperature_profile", "normal"): "temperature_profile_normal",
+    ("temperature_profile", "warm"):   "temperature_profile_warm",
+    ("bypass", "auto"):   "auto_bypass",
+    ("bypass", "open"):   "open_bypass",
+    ("bypass", "close"):  "close_bypass",
+    ("menu", "basis"):    "basis_menu",
+    ("menu", "extended"): "extended_menu",
+}
+
 command_mapping = {
     "set_ventilation_level_0": b'T1F07505180100201C00000000\r',
     "set_ventilation_level_1": b'T1F07505180100201C00000100\r',

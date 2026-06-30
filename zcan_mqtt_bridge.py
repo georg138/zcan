@@ -11,9 +11,35 @@ import sys
 from config import config
 
 can_frame_fmt = "=IB3x8s"
+
+def send_slcan_command(sock, cmd_bytes):
+    s = cmd_bytes.decode().strip()
+    can_id = int(s[1:9], 16)
+    dlc = int(s[9], 16)
+    data = list(bytes.fromhex(s[10:10 + dlc * 2]))
+    data += [0] * (8 - len(data))
+    sock.send(struct.pack("=IB3x8B", can_id | socket.CAN_EFF_FLAG, dlc, *data))
+
+def on_command(client, userdata, message):
+    topic_suffix = message.topic.split("/")[-1]
+    payload = message.payload.decode().strip()
+    key = (topic_suffix, payload)
+    cmd_name = mapping.command_topics.get(key)
+    if cmd_name is None:
+        print("Unknown command: topic=%s payload=%s" % (message.topic, payload), file=sys.stderr)
+        return
+    cmd_bytes = mapping.command_mapping.get(cmd_name)
+    if cmd_bytes is None:
+        print("No bytes for command: %s" % cmd_name, file=sys.stderr)
+        return
+    send_slcan_command(s, cmd_bytes)
+    print("Sent command %s" % cmd_name)
+
 mqtt_client = mqtt.Client()
 mqtt_client.will_set("lueftung/zehnder/available", "offline", retain=True)
+mqtt_client.on_message = on_command
 mqtt_client.connect(config['mqtt_host'], config['mqtt_port'], 60)
+mqtt_client.subscribe("lueftung/zehnder/command/+")
 mqtt_client.loop_start()
 
 def dissect_can_frame(frame):
