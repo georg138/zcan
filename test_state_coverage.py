@@ -14,7 +14,10 @@ STATE_TOPICS = {
 
 
 class TestStateCoverage(unittest.TestCase):
-    def test_all_states_published(self):
+    _received: set = set()
+
+    @classmethod
+    def setUpClass(cls):
         received = set()
 
         def on_message(client, userdata, msg):
@@ -28,13 +31,18 @@ class TestStateCoverage(unittest.TestCase):
         time.sleep(TIMEOUT)
         client.loop_stop()
         client.disconnect()
+        cls._received = received
 
-        missing = STATE_TOPICS - received
-        self.assertFalse(
-            missing,
-            "These state topics were never published:\n" + "\n".join(sorted(missing))
-        )
 
+def _make_state_test(topic):
+    def test(self):
+        self.assertIn(topic, self._received, f"{topic} was never published")
+    return test
+
+
+for _topic in STATE_TOPICS:
+    _name = "test_" + _topic.replace("lueftung/zehnder/state/", "").replace("/", "_")
+    setattr(TestStateCoverage, _name, _make_state_test(_topic))
 
 if __name__ == "__main__":
     unittest.main()

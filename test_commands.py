@@ -26,40 +26,43 @@ COMMAND_EXPECTED = [
 ]
 
 
-class TestMqttCommands(unittest.TestCase):
-    def _send_and_receive(self, cmd_suffix, cmd_payload, state_topic, expected):
-        received = threading.Event()
-        result = {}
+def _send_and_receive(cmd_suffix, cmd_payload, state_topic, expected):
+    received = threading.Event()
+    result = {}
 
-        def on_message(client, userdata, msg):
-            value = msg.payload.decode().strip()
-            if value == expected:
-                result["value"] = value
-                received.set()
+    def on_message(client, userdata, msg):
+        value = msg.payload.decode().strip()
+        if value == expected:
+            result["value"] = value
+            received.set()
 
-        client = mqtt.Client()
-        client.connect(config["mqtt_host"], config["mqtt_port"], 60)
-        client.subscribe(state_topic)
-        client.on_message = on_message
-        client.loop_start()
+    client = mqtt.Client()
+    client.connect(config["mqtt_host"], config["mqtt_port"], 60)
+    client.subscribe(state_topic)
+    client.on_message = on_message
+    client.loop_start()
+    time.sleep(0.2)
+    client.publish("lueftung/zehnder/command/" + cmd_suffix, cmd_payload)
+    received.wait(timeout=TIMEOUT)
+    client.loop_stop()
+    client.disconnect()
+    return result.get("value")
 
-        # small delay so subscription is registered before publishing
-        time.sleep(0.2)
-        client.publish("lueftung/zehnder/command/" + cmd_suffix, cmd_payload)
 
-        received.wait(timeout=TIMEOUT)
-        client.loop_stop()
-        client.disconnect()
+def _make_test(suffix, payload, state_topic, expected):
+    def test(self):
+        value = _send_and_receive(suffix, payload, state_topic, expected)
+        self.assertEqual(value, expected,
+            f"expected state '{expected}' on {state_topic}, got '{value}'")
+    return test
 
-        return result.get("value")
 
-    def test_all_commands(self):
-        for suffix, payload, state_topic, expected in COMMAND_EXPECTED:
-            with self.subTest(cmd=suffix, payload=payload):
-                value = self._send_and_receive(suffix, payload, state_topic, expected)
-                self.assertEqual(value, expected,
-                    f"Command {suffix}/{payload}: expected state '{expected}' on {state_topic}, got '{value}'")
+_cases = {}
+for _suffix, _payload, _state_topic, _expected in COMMAND_EXPECTED:
+    _name = "test_%s_%s" % (_suffix, _payload.replace(" ", "_"))
+    _cases[_name] = _make_test(_suffix, _payload, _state_topic, _expected)
 
+TestMqttCommands = type("TestMqttCommands", (unittest.TestCase,), _cases)
 
 if __name__ == "__main__":
     unittest.main()
