@@ -13,8 +13,8 @@ from config import config
 
 can_frame_fmt = "=IB3x8s"
 
-def send_command(cnet, data):
-    cnet.write_CN_Msg(0x11, cnet.ComfoAddr, 1, 0, 1, data)
+def send_command(cnet, hex_str):
+    cnet.write_CN_Msg(0x11, cnet.ComfoAddr, 1, 0, 1, list(bytes.fromhex(hex_str)))
 
 def on_command(client, userdata, message):
     topic_suffix = message.topic.split("/")[-1]
