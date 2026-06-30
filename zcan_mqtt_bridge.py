@@ -3,6 +3,7 @@
 from paho.mqtt import client as mqtt
 
 import mapping2 as mapping
+import ComfoNetCan as CN
 import asyncio
 import socket
 import struct
@@ -12,13 +13,8 @@ from config import config
 
 can_frame_fmt = "=IB3x8s"
 
-def send_slcan_command(sock, cmd_bytes):
-    s = cmd_bytes.decode().strip()
-    can_id = int(s[1:9], 16)
-    dlc = int(s[9], 16)
-    data = list(bytes.fromhex(s[10:10 + dlc * 2]))
-    data += [0] * (8 - len(data))
-    sock.send(struct.pack("=IB3x8B", can_id | socket.CAN_EFF_FLAG, dlc, *data))
+def send_command(cnet, data):
+    cnet.write_CN_Msg(0x11, cnet.ComfoAddr, 1, 0, 1, data)
 
 def on_command(client, userdata, message):
     topic_suffix = message.topic.split("/")[-1]
@@ -28,12 +24,18 @@ def on_command(client, userdata, message):
     if cmd_name is None:
         print("Unknown command: topic=%s payload=%s" % (message.topic, payload), file=sys.stderr)
         return
-    cmd_bytes = mapping.command_mapping.get(cmd_name)
-    if cmd_bytes is None:
-        print("No bytes for command: %s" % cmd_name, file=sys.stderr)
+    data = mapping.command_mapping.get(cmd_name)
+    if data is None:
+        print("No data for command: %s" % cmd_name, file=sys.stderr)
         return
-    send_slcan_command(s, cmd_bytes)
+    send_command(cnet, data)
     print("Sent command %s" % cmd_name)
+
+# create a raw socket and bind it to the given CAN interface
+s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+s.bind((config['can_if'],))
+cnet = CN.ComfoNet(s)
+cnet.FindComfoAirQ()
 
 mqtt_client = mqtt.Client()
 mqtt_client.will_set("lueftung/zehnder/available", "offline", retain=True)
@@ -69,10 +71,7 @@ def handle_client(cansocket):
             else:
                 print("Unknown message %i %s" % (pdid, repr(data)), file=sys.stderr)
 
-# create a raw socket and bind it to the given CAN interface
 loop = asyncio.get_event_loop()
-s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
-s.bind((config['can_if'],))
 loop.run_until_complete(
         handle_client(s))
 
