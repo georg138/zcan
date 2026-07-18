@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import time
+import asyncio
 import unittest
-from paho.mqtt import client as mqtt
+import aiomqtt
 from config import config
 import mapping2 as mapping
 
@@ -18,20 +18,20 @@ class TestStateCoverage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        received = set()
+        async def _collect():
+            received = set()
+            async with aiomqtt.Client(config["mqtt_host"], config["mqtt_port"]) as client:
+                await client.subscribe("lueftung/zehnder/state/+")
+                try:
+                    async def _drain():
+                        async for msg in client.messages:
+                            received.add(msg.topic.value)
+                    await asyncio.wait_for(_drain(), TIMEOUT)
+                except asyncio.TimeoutError:
+                    pass
+            return received
 
-        def on_message(client, userdata, msg):
-            received.add(msg.topic)
-
-        client = mqtt.Client()
-        client.connect(config["mqtt_host"], config["mqtt_port"], 60)
-        client.subscribe("lueftung/zehnder/state/+")
-        client.on_message = on_message
-        client.loop_start()
-        time.sleep(TIMEOUT)
-        client.loop_stop()
-        client.disconnect()
-        cls._received = received
+        cls._received = asyncio.run(_collect())
 
 
 def _make_state_test(topic):

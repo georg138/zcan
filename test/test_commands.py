@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import time
-import threading
+import asyncio
 import unittest
-from paho.mqtt import client as mqtt
+import aiomqtt
 from config import config
 
 TIMEOUT = 5  # seconds to wait for device response
@@ -26,42 +25,33 @@ COMMAND_EXPECTED = [
 ]
 
 
-def _send_and_receive(cmd_suffix, cmd_payload, state_topic, expected, reset_payload):
-    reset_done = threading.Event()
-    received = threading.Event()
-    result = {}
+async def _send_and_receive(cmd_suffix, cmd_payload, state_topic, expected, reset_payload):
+    async with aiomqtt.Client(config["mqtt_host"], config["mqtt_port"]) as client:
+        await client.subscribe(state_topic)
 
-    def on_message(client, userdata, msg):
-        value = msg.payload.decode().strip()
-        if not reset_done.is_set():
-            if value != expected:
-                reset_done.set()
-        else:
-            if value == expected:
-                result["value"] = value
-                received.set()
+        await client.publish("lueftung/zehnder/command/" + cmd_suffix, reset_payload)
 
-    client = mqtt.Client()
-    client.connect(config["mqtt_host"], config["mqtt_port"], 60)
-    client.subscribe(state_topic)
-    client.on_message = on_message
-    client.loop_start()
-    time.sleep(0.2)
+        async def _wait_reset():
+            async for msg in client.messages:
+                if msg.payload.decode().strip() != expected:
+                    return
 
-    client.publish("lueftung/zehnder/command/" + cmd_suffix, reset_payload)
-    reset_done.wait(timeout=TIMEOUT)
+        await asyncio.wait_for(_wait_reset(), TIMEOUT)
 
-    client.publish("lueftung/zehnder/command/" + cmd_suffix, cmd_payload)
-    received.wait(timeout=TIMEOUT)
+        await client.publish("lueftung/zehnder/command/" + cmd_suffix, cmd_payload)
 
-    client.loop_stop()
-    client.disconnect()
-    return result.get("value")
+        async def _wait_expected():
+            async for msg in client.messages:
+                value = msg.payload.decode().strip()
+                if value == expected:
+                    return value
+
+        return await asyncio.wait_for(_wait_expected(), TIMEOUT)
 
 
 def _make_test(suffix, payload, state_topic, expected, reset_payload):
-    def test(self):
-        value = _send_and_receive(suffix, payload, state_topic, expected, reset_payload)
+    async def test(self):
+        value = await _send_and_receive(suffix, payload, state_topic, expected, reset_payload)
         self.assertEqual(value, expected,
             f"expected state '{expected}' on {state_topic}, got '{value}'")
     return test
@@ -72,7 +62,7 @@ for _suffix, _payload, _state_topic, _expected, _reset in COMMAND_EXPECTED:
     _name = "test_%s_%s" % (_suffix, _payload.replace(" ", "_"))
     _cases[_name] = _make_test(_suffix, _payload, _state_topic, _expected, _reset)
 
-TestMqttCommands = type("TestMqttCommands", (unittest.TestCase,), _cases)
+TestMqttCommands = type("TestMqttCommands", (unittest.IsolatedAsyncioTestCase,), _cases)
 
 if __name__ == "__main__":
     unittest.main()
