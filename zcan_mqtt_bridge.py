@@ -7,7 +7,6 @@ import ComfoNetCan as CN
 import asyncio
 import socket
 import struct
-import time
 import sys
 from config import config
 
@@ -34,6 +33,7 @@ def on_command(client, userdata, message):
 # create a raw socket and bind it to the given CAN interface
 s = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
 s.bind((config['can_if'],))
+s.setblocking(False)
 cnet = CN.ComfoNet(s)
 cnet.FindComfoAirQ()
 
@@ -53,26 +53,22 @@ def dissect_can_frame(frame):
 
     return (can_id, can_dlc, data[:can_dlc])
 
-@asyncio.coroutine
-def handle_client(cansocket):
+async def handle_client(cansocket):
+    loop = asyncio.get_running_loop()
     mqtt_client.publish("lueftung/zehnder/available", "online", retain=True)
-    request = None
     while True:
-        msg = yield from loop.sock_recv(cansocket, 16)
+        msg = await loop.sock_recv(cansocket, 16)
         can_id, can_dlc, data = dissect_can_frame(msg)
         if can_id & 0xFF800000 == 0:
-            pdid = (can_id>>14)&0x7ff
+            pdid = (can_id >> 14) & 0x7ff
             if pdid in mapping.mapping:
                 map = mapping.mapping[pdid]
                 topic = "lueftung/zehnder/state/%s" % map["name"]
                 info = map["transformation"](data)
                 mqtt_client.publish(topic, info, retain=True)
-                #print("Pushing to %i %s %s" % (pdid, topic, str(info)))
             else:
                 print("Unknown message %i %s" % (pdid, repr(data)), file=sys.stderr)
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(
-        handle_client(s))
+asyncio.run(handle_client(s))
 
 # vim: et:sw=4:ts=4:smarttab:foldmethod=indent:si
