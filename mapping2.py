@@ -607,19 +607,41 @@ mapping = {
 #00398041 unknown 0 0 0 0 0 0 0 0
 }
 
+command_topics = {
+    ("set_ventilation_level", "0"): "set_ventilation_level_0",
+    ("set_ventilation_level", "1"): "set_ventilation_level_1",
+    ("set_ventilation_level", "2"): "set_ventilation_level_2",
+    ("set_ventilation_level", "3"): "set_ventilation_level_3",
+    ("operating_mode", "auto"):        "auto_mode",
+    ("operating_mode", "manual"):      "manual_mode",
+    ("temperature_profile", "cool"):   "temperature_profile_cool",
+    ("temperature_profile", "normal"): "temperature_profile_normal",
+    ("temperature_profile", "warm"):   "temperature_profile_warm",
+    ("bypass", "auto"):   "auto_bypass",
+    ("bypass", "open"):   "open_bypass",
+    ("bypass", "close"):  "close_bypass",
+    ("menu", "basis"):    "basis_menu",
+    ("menu", "extended"): "extended_menu",
+}
+
 command_mapping = {
-    "set_ventilation_level_0": b'T1F07505180100201C00000000\r',
-    "set_ventilation_level_1": b'T1F07505180100201C00000100\r',
-    "set_ventilation_level_2": b'T1F07505180100201C00000200\r',
-    "set_ventilation_level_3": b'T1F07505180100201C00000300\r',
-    "auto_mode": b'T1F075051485150801\r', # verified (also: T1F051051485150801\r)
-    "manual_mode": b'T1F07505180084150101000000\r', # verified (also: T1F051051485150801\r)
-    "temperature_profile_cool": b'T0010C041101\r',
-    "temperature_profile_normal": b'T0010C041100\r',
-    "temperature_profile_warm": b'T0010C041102\r',
-    "close_bypass": b'T00108041102\r',
-    "open_bypass": b'T00108041101\r',
-    "auto_bypass": b'T00108041100\r',
-    "basis_menu": b"T00400041100\r",
-    "extended_menu": b"T00400041101\r"
+    # ventilation level: sendmsg.py line 30 (ENABLETIMERENTRY type=0x01, level at index 12)
+    "set_ventilation_level_0": "8415010100000000001c000000000000",
+    "set_ventilation_level_1": "8415010100000000001c000001000000",
+    "set_ventilation_level_2": "8415010100000000001c000002000000",
+    "set_ventilation_level_3": "8415010100000000001c000003000000",
+    # operating mode: sendmsg.py lines 56-57 (type=0x08)
+    "auto_mode":   "85150801",
+    "manual_mode": "84150801000000000100000001",
+    # bypass: sendmsg.py lines 35+38 (type=0x02); open/close value matches bypass_mode_enum
+    "auto_bypass":  "85150201",
+    "open_bypass":  "8415020100000000100e000001000000",
+    "close_bypass": "8415020100000000100e000002000000",
+    # temperature profile (TEMPHUMCONTROL=0x1D, extrapolated from ventilation level pattern)
+    "temperature_profile_normal": "8415030100000000001c000000000000",
+    "temperature_profile_cool":   "8415030100000000001c000001000000",
+    "temperature_profile_warm":   "8415030100000000001c000002000000",
+    # menu mode (NODECONFIGURATION=0x20, extrapolated from ventilation level pattern)
+    "basis_menu":    "8420010100000000001c000000000000",
+    "extended_menu": "8420010100000000001c000001000000",
 }
